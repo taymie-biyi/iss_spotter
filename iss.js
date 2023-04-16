@@ -9,42 +9,38 @@ const request = require("request");
 //  *   - An error, if any (nullable)
 //  *   - The IP address as a string (null if error). Example: "162.245.144.188"
 //  */
-// const fetchMyIP = function(callback) {
-//   // use request to fetch IP address from JSON API
-//   request("https://api.ipify.org?format=json", (error, response, body) => {
+const fetchMyIP = function(callback) {
+  // use request to fetch IP address from JSON API
+  request("https://api.ipify.org?format=json", (error, response, body) => {
 
-//     if (error) {
-//       return callback(error, null);
-//     }
+    if (error) return callback(error, null);
 
-//     if (response.statusCode !== 200) {
-//       const msg = `Status Code ${response.statusCode} when fetching IP. Response: ${body}`;
-//       callback(Error(msg), null);
-//       return;
-//     }
+    if (response.statusCode !== 200) {
+      const msg = `Status Code ${response.statusCode} when fetching IP. Response: ${body}`;
+      callback(Error(msg), null);
+      return;
+    }
   
-//     const ip = JSON.parse(body).ip;
-//     return callback(null, ip);
-//   });
-// };
+    const ip = JSON.parse(body).ip;
+    return callback(null, ip);
+  });
+};
 
-// const fetchCoordsByIP = (ip, callback) => {
-//   request(`http://ipwho.is/${ip}`, (error, response, body) => {
-//     if (error) {
-//       return callback(error, null);
-//     }
+const fetchCoordsByIP = (ip, callback) => {
+  request(`http://ipwho.is/${ip}`, (error, response, body) => {
+    if (error) return callback(error, null);
 
-//     const data = JSON.parse(body);
+    const data = JSON.parse(body);
 
-//     if (!data.success) {
-//       const message = `Success status was ${data.success}. Server message says: ${data.message} when fetching for IP ${data.ip}`;
-//       callback(Error(message), null);
-//       return;
-//     }
-//     const {latitude, longitude} = data;
-//     return callback(null, {latitude, longitude});
-//   });
-// }
+    if (!data.success) {
+      const message = `Success status was ${data.success}. Server message says: ${data.message} when fetching for IP ${data.ip}`;
+      callback(Error(message), null);
+      return;
+    }
+    const {latitude, longitude} = data;
+    return callback(null, {latitude, longitude});
+  });
+};
 /**
  * Makes a single API request to retrieve upcoming ISS fly over times the for the given lat/lng coordinates.
  * Input:
@@ -57,9 +53,7 @@ const request = require("request");
  */
 const fetchISSFlyOverTimes = function(coords, callback) {
   request(`https://iss-flyover.herokuapp.com/json/?lat=${coords.latitude}&lon=${coords.longitude}`, (error, response, body) => {
-    if (error) {
-      return callback(error, null);
-    }
+    if (error) return callback(error, null);
 
     const data = JSON.parse(body);
 
@@ -73,4 +67,30 @@ const fetchISSFlyOverTimes = function(coords, callback) {
   });
 };
 
-module.exports = {  fetchISSFlyOverTimes };
+/**
+ * Orchestrates multiple API requests in order to determine the next 5 upcoming ISS fly overs for the user's current location.
+ * Input:
+ *   - A callback with an error or results.
+ * Returns (via Callback):
+ *   - An error, if any (nullable)
+ *   - The fly-over times as an array (null if error):
+ *     [ { risetime: <number>, duration: <number> }, ... ]
+ */
+const nextISSTimesForMyLocation = function(callback) {
+  fetchMyIP((error, ip) => {
+    if (error) return callback(error, null);
+  
+    fetchCoordsByIP(ip, (error, loc) => {
+      if (error) return callback(error, null);
+  
+      fetchISSFlyOverTimes(loc, (error, nextPasses) => {
+        if (error) return callback(error, null);
+  
+        callback(null, nextPasses);
+      });
+    });
+  });
+};
+
+module.exports = {  nextISSTimesForMyLocation };
+
